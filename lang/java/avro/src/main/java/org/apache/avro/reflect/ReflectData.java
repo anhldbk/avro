@@ -101,6 +101,7 @@ public class ReflectData extends SpecificData {
   public static class UseInitialValueAsDefault extends ReflectData {
     private static final ReflectData INSTANCE = new UseInitialValueAsDefault();
     private final Map<String, Object> defaultValues = new ConcurrentHashMap<>();
+    private boolean allowNull = false;
 
     /** Return the singleton instance. */
     public static ReflectData get() {
@@ -120,10 +121,21 @@ public class ReflectData extends SpecificData {
      *
      * @param className       the fully qualified name of the desired class.
      * @param defaultInstance its default value for such class.
-     * @return The current instance.
+     * @return The current UseInitialValueAsDefault instance.
      */
     public UseInitialValueAsDefault withDefault(String className, Object defaultInstance) {
       this.defaultValues.put(className, defaultInstance);
+      return this;
+    }
+
+    /**
+     * Allows null field values (just like AllowNull above)
+     *
+     * @param allowed Set to true to allow nullable fields.
+     * @return The current UseInitialValueAsDefault instance.n
+     */
+    public UseInitialValueAsDefault allowNull(boolean allowed) {
+      this.allowNull = allowed;
       return this;
     }
 
@@ -158,6 +170,17 @@ public class ReflectData extends SpecificData {
       }
 
       return def;
+    }
+
+    @Override
+    protected Schema createFieldSchema(Field field, Map<String, Schema> names) {
+      Schema schema = super.createFieldSchema(field, names);
+      if (!allowNull || field.getType().isPrimitive()) {
+        // for primitive values, such as int, a null will result in a
+        // NullPointerException at read time
+        return schema;
+      }
+      return makeNullable(schema);
     }
   }
 
