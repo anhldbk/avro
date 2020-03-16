@@ -17,6 +17,26 @@
  */
 package org.apache.avro.reflect;
 
+import org.apache.avro.AvroRuntimeException;
+import org.apache.avro.AvroTypeException;
+import org.apache.avro.Conversion;
+import org.apache.avro.JsonProperties;
+import org.apache.avro.LogicalType;
+import org.apache.avro.Protocol;
+import org.apache.avro.Protocol.Message;
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaNormalization;
+import org.apache.avro.generic.GenericContainer;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericFixed;
+import org.apache.avro.generic.IndexedRecord;
+import org.apache.avro.io.BinaryData;
+import org.apache.avro.io.DatumReader;
+import org.apache.avro.io.DatumWriter;
+import org.apache.avro.specific.FixedSize;
+import org.apache.avro.specific.SpecificData;
+import org.apache.avro.util.ClassUtils;
+
 import java.io.IOException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
@@ -40,26 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.apache.avro.AvroRuntimeException;
-import org.apache.avro.AvroTypeException;
-import org.apache.avro.Conversion;
-import org.apache.avro.JsonProperties;
-import org.apache.avro.LogicalType;
-import org.apache.avro.Protocol;
-import org.apache.avro.Protocol.Message;
-import org.apache.avro.Schema;
-import org.apache.avro.generic.GenericContainer;
-import org.apache.avro.generic.GenericData;
-import org.apache.avro.generic.GenericFixed;
-import org.apache.avro.generic.IndexedRecord;
-import org.apache.avro.io.BinaryData;
-import org.apache.avro.util.ClassUtils;
-import org.apache.avro.io.DatumReader;
-import org.apache.avro.io.DatumWriter;
-import org.apache.avro.specific.FixedSize;
-import org.apache.avro.specific.SpecificData;
-import org.apache.avro.SchemaNormalization;
 
 /** Utilities to use existing Java classes and interfaces via reflection. */
 public class ReflectData extends SpecificData {
@@ -93,6 +93,74 @@ public class ReflectData extends SpecificData {
     }
   }
 
+  /**
+   * {@link ReflectData} implementation that use initial values for fields. If you
+   * don't provide the initial, it will try to use new values using default
+   * constructors.
+   */
+  public static class UseInitialValueAsDefault extends ReflectData {
+    private static final ReflectData INSTANCE = new UseInitialValueAsDefault();
+    private final Map<String, Object> defaultValues = new ConcurrentHashMap<>();
+
+    /** Return the singleton instance. */
+    public static ReflectData get() {
+      return INSTANCE;
+    }
+
+    public UseInitialValueAsDefault(Map<String, Object> initialValues) {
+      this.defaultValues.putAll(initialValues);
+    }
+
+    public UseInitialValueAsDefault() {
+      this(new ConcurrentHashMap<>());
+    }
+
+    /**
+     * Map a class with a provided instance.
+     *
+     * @param className       the fully qualified name of the desired class.
+     * @param defaultInstance its default value for such class.
+     * @return The current instance.
+     */
+    public UseInitialValueAsDefault withDefault(String className, Object defaultInstance) {
+      this.defaultValues.put(className, defaultInstance);
+      return this;
+    }
+
+    protected Object getOrCreateDefaultValue(String className) {
+      return this.defaultValues.computeIfAbsent(className, ignored -> {
+        try {
+          return Class.forName(className).newInstance();
+        } catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+          e.printStackTrace();
+        }
+        return null;
+      });
+    }
+
+    @Override
+    protected Object createSchemaDefaultValue(Type type, Field field, Schema fieldSchema) {
+      String className = ((Class) type).getName();
+      field.setAccessible(true);
+      Object def = null;
+
+      try {
+        Object value = getOrCreateDefaultValue(className);
+        if (value != null) {
+          def = field.get(value);
+        }
+      } catch (IllegalAccessException e) {
+        e.printStackTrace();
+      }
+
+      if (def == null) {
+        def = super.createSchemaDefaultValue(type, field, fieldSchema);
+      }
+
+      return def;
+    }
+  }
+
   private static final ReflectData INSTANCE = new ReflectData();
 
   /** For subclasses. Applications normally use {@link ReflectData#get()}. */
@@ -110,8 +178,8 @@ public class ReflectData extends SpecificData {
   }
 
   /**
-   * Cause a class to be treated as though it had an {@link Stringable}
-   ** annotation.
+   * Cause a class to be treated as though it had an {@link Stringable} *
+   * annotation.
    */
   public ReflectData addStringable(Class c) {
     stringableClasses.add(c);
@@ -192,19 +260,16 @@ public class ReflectData extends SpecificData {
 
   /**
    * Returns true for arrays and false otherwise, with the following exceptions:
+   *
    * <ul>
    * <li>
    * <p>
    * Returns true for non-string-keyed maps, which are written as an array of
    * key/value pair records.
-   * </p>
-   * </li>
    * <li>
    * <p>
    * Returns false for arrays of bytes, since those should be treated as byte data
    * type instead.
-   * </p>
-   * </li>
    * </ul>
    */
   @Override
@@ -363,6 +428,7 @@ public class ReflectData extends SpecificData {
 
   private static final Class BYTES_CLASS = byte[].class;
   private static final IdentityHashMap<Class, Class> ARRAY_CLASSES;
+
   static {
     ARRAY_CLASSES = new IdentityHashMap<>();
     ARRAY_CLASSES.put(byte.class, byte[].class);
@@ -782,6 +848,7 @@ public class ReflectData extends SpecificData {
 
   /**
    * Return the protocol for a Java interface.
+   *
    * <p>
    * The correct name of the method parameters needs the <code>-parameters</code>
    * java compiler argument. More info at https://openjdk.java.net/jeps/118
