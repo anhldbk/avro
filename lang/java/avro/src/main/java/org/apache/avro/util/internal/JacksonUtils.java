@@ -38,7 +38,7 @@ public class JacksonUtils {
 
   private JacksonUtils() {}
 
-  public static JsonNode toJsonNode(Object datum) {
+  public static JsonNode toJsonNode(Object datum) throws AvroRuntimeException {
     if (datum == null) {
       return null;
     }
