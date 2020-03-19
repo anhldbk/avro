@@ -129,6 +129,10 @@ public class ReflectData extends SpecificData {
       return this;
     }
 
+    public UseInitialValueAsDefault withDefault(Class prototype, Object defaultInstance) {
+      return withDefault(prototype.getName(), defaultInstance);
+    }
+
     /**
      * Allows null field values (just like AllowNull above)
      *
