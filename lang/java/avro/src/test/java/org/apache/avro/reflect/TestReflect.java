@@ -17,18 +17,13 @@
  */
 package org.apache.avro.reflect;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.*;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
-import java.util.*;
-
-import org.apache.avro.*;
+import org.apache.avro.AvroRuntimeException;
+import org.apache.avro.AvroTypeException;
+import org.apache.avro.JsonProperties;
+import org.apache.avro.Protocol;
+import org.apache.avro.Schema;
 import org.apache.avro.Schema.Field;
+import org.apache.avro.SchemaBuilder;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.io.Decoder;
 import org.apache.avro.io.DecoderFactory;
@@ -36,8 +31,23 @@ import org.apache.avro.io.Encoder;
 import org.apache.avro.io.EncoderFactory;
 import org.apache.avro.reflect.TestReflect.SampleRecord.AnotherSampleRecord;
 import org.apache.avro.util.Utf8;
-
 import org.junit.Test;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.lang.reflect.Array;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.*;
 
 public class TestReflect {
 
@@ -674,6 +684,7 @@ public class TestReflect {
   public static class RAvroNameCollide {
     @AvroName("b")
     int a;
+
     int b;
   }
 
@@ -1195,14 +1206,12 @@ public class TestReflect {
   @AvroAlias(alias = "alias1", space = "space1")
   @AvroAlias(alias = "alias2", space = "space2")
   private static class MultipleAliasRecord {
-
   }
 
   @Test
   public void testMultipleAliasAnnotationsOnClass() {
     check(MultipleAliasRecord.class,
         "{\"type\":\"record\",\"name\":\"MultipleAliasRecord\",\"namespace\":\"org.apache.avro.reflect.TestReflect\",\"fields\":[],\"aliases\":[\"space1.alias1\",\"space2.alias2\"]}");
-
   }
 
   private static class Z {
@@ -1326,4 +1335,43 @@ public class TestReflect {
             + "\"fields\":[{\"name\":\"foo\",\"type\":\"int\",\"default\":1}]},\"doc\":\"And again\"}]}");
   }
 
+  public static class Human {
+    public String name = "Andy";
+    public ArrayList<Human> friends = new ArrayList<>();
+
+    public Human(String name) {
+      this.name = name;
+    }
+
+    public Human() {
+    }
+  }
+
+  public static class Machine {
+    public String name = "machine";
+  }
+
+  @Test
+  public void testDefaults() {
+    Human andy = new Human("andy");
+    Human grass = new Human("grass");
+    andy.friends.add(grass);
+
+    Schema schema = ReflectData.UseInitialValueAsDefault.get().withDefault(Human.class, andy).getSchema(Human.class);
+    System.out.println(schema.toString(true));
+  }
+
+  public static class Meta {
+    @Union({ Human.class, Machine.class })
+    ArrayList<Object> kinds = new ArrayList<>();
+  }
+
+  @Test
+  public void testUnionDefaults() {
+    Human andy = new Human();
+    Meta meta = new Meta();
+    meta.kinds.add(andy);
+    Schema schema = ReflectData.UseInitialValueAsDefault.get().withDefault(Meta.class, meta).getSchema(Meta.class);
+    System.out.println(schema.toString(true));
+  }
 }

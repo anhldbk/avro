@@ -25,6 +25,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.DoubleNode;
 import com.fasterxml.jackson.databind.node.NullNode;
+import org.apache.avro.util.internal.Accessor;
+import org.apache.avro.util.internal.Accessor.FieldAccessor;
+import org.apache.avro.util.internal.JacksonUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -46,14 +49,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import org.apache.avro.util.internal.Accessor;
-import org.apache.avro.util.internal.Accessor.FieldAccessor;
-import org.apache.avro.util.internal.JacksonUtils;
 
 /**
  * An abstract data type.
+ *
  * <p>
  * A schema may be one of:
+ *
  * <ul>
  * <li>A <i>record</i>, mapping field names to field value data;
  * <li>An <i>enum</i>, containing one of a small set of symbols;
@@ -76,6 +78,7 @@ import org.apache.avro.util.internal.JacksonUtils;
  * are <i>logically</i> immutable. There are only two mutating methods -
  * {@link #setFields(List)} and {@link #addProp(String, String)}. The following
  * restrictions apply on these two methods.
+ *
  * <ul>
  * <li>{@link #setFields(List)}, can be called at most once. This method exists
  * in order to enable clients to build recursive schemas.
@@ -165,6 +168,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
       Arrays.asList("doc", "fields", "items", "name", "namespace", "size", "symbols", "values", "type", "aliases"));
 
   private static final Set<String> ENUM_RESERVED = new HashSet<>(SCHEMA_RESERVED);
+
   static {
     ENUM_RESERVED.add("default");
   }
@@ -512,20 +516,36 @@ public abstract class Schema extends JsonProperties implements Serializable {
     private final JsonNode defaultValue;
     private final Order order;
     private Set<String> aliases;
+    private final boolean validateDefault;
 
     Field(String name, Schema schema, String doc, JsonNode defaultValue, boolean validateDefault, Order order) {
       super(FIELD_RESERVED);
-      this.name = validateName(name);
+      this.name = name;
       this.schema = schema;
       this.doc = doc;
-      this.defaultValue = validateDefault ? validateDefault(name, schema, defaultValue) : defaultValue;
+      this.defaultValue = defaultValue;
       this.order = Objects.requireNonNull(order, "Order cannot be null");
+      this.validateDefault = validateDefault;
+    }
+
+    public static void postValidateAll(List<Field> fields) {
+      for (Field field : fields) {
+        field.postValidate();
+      }
+    }
+
+    public void postValidate() {
+      validateName(this.name);
+      if (validateDefault) {
+        validateDefault(name, schema, defaultValue);
+      }
     }
 
     /**
      * Constructs a new Field instance with the same {@code name}, {@code doc},
-     * {@code defaultValue}, and {@code order} as {@code field} has with changing
-     * the schema to the specified one. It also copies all the {@code props} and
+     * {@code
+     * defaultValue}, and {@code order} as {@code field} has with changing the
+     * schema to the specified one. It also copies all the {@code props} and
      * {@code aliases}.
      */
     public Field(Field field, Schema schema) {
@@ -535,16 +555,12 @@ public abstract class Schema extends JsonProperties implements Serializable {
         aliases = new LinkedHashSet<>(field.aliases);
     }
 
-    /**
-     *
-     */
+    /** */
     public Field(String name, Schema schema) {
       this(name, schema, (String) null, (JsonNode) null, true, Order.ASCENDING);
     }
 
-    /**
-     *
-     */
+    /** */
     public Field(String name, Schema schema, String doc) {
       this(name, schema, doc, (JsonNode) null, true, Order.ASCENDING);
     }
@@ -717,7 +733,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
     }
   }
 
-  private static abstract class NamedSchema extends Schema {
+  private abstract static class NamedSchema extends Schema {
     final Name name;
     final String doc;
     Set<Name> aliases;
@@ -806,7 +822,6 @@ public abstract class Schema extends JsonProperties implements Serializable {
         gen.writeString(alias.getQualified(name.space));
       gen.writeEndArray();
     }
-
   }
 
   /**
@@ -894,6 +909,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
       }
       this.fields = ff.lock();
       this.hashCode = NO_HASHCODE;
+      Field.postValidateAll(fields);
     }
 
     @Override
@@ -1454,6 +1470,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
   }
 
   static final Map<String, Type> PRIMITIVES = new HashMap<>();
+
   static {
     PRIMITIVES.put("string", Type.STRING);
     PRIMITIVES.put("bytes", Type.BYTES);
@@ -1574,8 +1591,27 @@ public abstract class Schema extends JsonProperties implements Serializable {
         if (!isValidDefault(schema.getValueType(), value))
           return false;
       return true;
-    case UNION: // union default: first branch
-      return isValidDefault(schema.getTypes().get(0), defaultValue);
+    case UNION: // union default: match any
+      // Create an empty list
+      List<JsonNode> valueList = new ArrayList<>();
+      if (!defaultValue.isArray()) {
+        valueList.add(defaultValue);
+      } else {
+        // Add each element of iterator to the List
+        defaultValue.iterator().forEachRemaining(valueList::add);
+      }
+
+      for (JsonNode value : valueList) {
+        for (Schema sc : schema.getTypes()) {
+          if (isValidDefault(sc, value)) {
+            break;
+          }
+          return false;
+        }
+      }
+
+      return true;
+
     case RECORD:
       if (!defaultValue.isObject())
         return false;
@@ -1767,9 +1803,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
     }
   }
 
-  /**
-   * Parses the specified json string to an object.
-   */
+  /** Parses the specified json string to an object. */
   public static Object parseJsonToObject(String s) {
     return JacksonUtils.toObject(parseJson(s));
   }
