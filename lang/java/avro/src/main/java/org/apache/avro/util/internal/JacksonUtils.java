@@ -36,7 +36,8 @@ import java.util.Map;
 
 public class JacksonUtils {
 
-  private JacksonUtils() {}
+  private JacksonUtils() {
+  }
 
   public static JsonNode toJsonNode(Object datum) throws AvroRuntimeException {
     if (datum == null) {
@@ -80,7 +81,7 @@ public class JacksonUtils {
       generator.writeNumber((Long) datum);
     } else if (datum instanceof Integer) { // int
       generator.writeNumber((Integer) datum);
-    }else if (datum instanceof Short) { // short
+    } else if (datum instanceof Short) { // short
       generator.writeNumber((Short) datum);
     } else if (datum instanceof Byte) { // byte
       generator.writeNumber((Byte) datum);
@@ -88,7 +89,7 @@ public class JacksonUtils {
       generator.writeBoolean((Boolean) datum);
     } else {
       toJson(objectToMap(datum), generator);
-      //      throw new AvroRuntimeException("Unknown datum class: " + datum.getClass());
+      // throw new AvroRuntimeException("Unknown datum class: " + datum.getClass());
     }
   }
 
@@ -102,7 +103,13 @@ public class JacksonUtils {
 
   public static Object toObject(JsonNode jsonNode, Schema schema) {
     if (schema != null && schema.getType().equals(Schema.Type.UNION)) {
-      return toObject(jsonNode, schema.getTypes().get(0));
+      for (Schema sc : schema.getTypes()) {
+        Object result = toObject(jsonNode, sc);
+        if (result != null) {
+          return result;
+        }
+      }
+      return null;
     }
     if (jsonNode == null) {
       return null;
@@ -125,12 +132,9 @@ public class JacksonUtils {
         return (float) jsonNode.asDouble();
       }
     } else if (jsonNode.isTextual()) {
-      if (schema == null
-          || schema.getType().equals(Schema.Type.STRING)
-          || schema.getType().equals(Schema.Type.ENUM)) {
+      if (schema == null || schema.getType().equals(Schema.Type.STRING) || schema.getType().equals(Schema.Type.ENUM)) {
         return jsonNode.asText();
-      } else if (schema.getType().equals(Schema.Type.BYTES)
-          || schema.getType().equals(Schema.Type.FIXED)) {
+      } else if (schema.getType().equals(Schema.Type.BYTES) || schema.getType().equals(Schema.Type.FIXED)) {
         return jsonNode.textValue().getBytes(StandardCharsets.ISO_8859_1);
       }
     } else if (jsonNode.isArray()) {
@@ -141,7 +145,7 @@ public class JacksonUtils {
       return l;
     } else if (jsonNode.isObject()) {
       Map<Object, Object> m = new LinkedHashMap<>();
-      for (Iterator<String> it = jsonNode.fieldNames(); it.hasNext(); ) {
+      for (Iterator<String> it = jsonNode.fieldNames(); it.hasNext();) {
         String key = it.next();
         final Schema s;
         if (schema != null && schema.getType().equals(Schema.Type.MAP)) {
