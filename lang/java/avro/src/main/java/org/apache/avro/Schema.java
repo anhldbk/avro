@@ -1600,12 +1600,16 @@ public abstract class Schema extends JsonProperties implements Serializable {
         // Add each element of iterator to the List
         defaultValue.iterator().forEachRemaining(valueList::add);
       }
-
+      boolean valid = false;
       for (JsonNode value : valueList) {
+        valid = false;
         for (Schema sc : schema.getTypes()) {
           if (isValidDefault(sc, value)) {
+            valid = true;
             break;
           }
+        }
+        if (!valid) {
           return false;
         }
       }
