@@ -184,7 +184,9 @@ public class GenericDatumReader<D> implements DatumReader<D> {
     case MAP:
       return readMap(old, expected, in);
     case UNION:
-      return read(old, expected.getTypes().get(in.readIndex()), in);
+      int readIndex = in.readIndex();
+      if(readIndex < 0) return null;
+      return read(old, expected.getTypes().get(readIndex), in);
     case FIXED:
       return readFixed(old, expected, in);
     case STRING:

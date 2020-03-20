@@ -288,7 +288,8 @@ public class ReflectDatumReader<T> extends SpecificDatumReader<T> {
           }
         }
         try {
-          accessor.set(record, readWithoutConversion(oldDatum, field.schema(), in));
+          Object value = readWithoutConversion(oldDatum, field.schema(), in);
+          accessor.set(record, value);
           return;
         } catch (IllegalAccessException e) {
           throw new AvroRuntimeException("Failed to set " + field);

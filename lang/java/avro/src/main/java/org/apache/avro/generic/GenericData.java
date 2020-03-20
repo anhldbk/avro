@@ -872,7 +872,8 @@ public class GenericData {
     if (i != null) {
       return i;
     }
-    throw new UnresolvedUnionException(union, datum);
+    return -1;
+//    throw new UnresolvedUnionException(union, datum);
   }
 
   /**
