@@ -184,7 +184,10 @@ public class GenericDatumReader<D> implements DatumReader<D> {
     case MAP:
       return readMap(old, expected, in);
     case UNION:
-      return read(old, expected.getTypes().get(in.readIndex()), in);
+      int index = in.readIndex();
+      if (index < 0)
+        return null;
+      return read(old, expected.getTypes().get(index), in);
     case FIXED:
       return readFixed(old, expected, in);
     case STRING:
@@ -588,7 +591,9 @@ public class GenericDatumReader<D> implements DatumReader<D> {
       }
       break;
     case UNION:
-      skip(schema.getTypes().get(in.readIndex()), in);
+      int index = in.readIndex();
+      if (index > -1)
+        skip(schema.getTypes().get(index), in);
       break;
     case FIXED:
       in.skipFixed(schema.getFixedSize());

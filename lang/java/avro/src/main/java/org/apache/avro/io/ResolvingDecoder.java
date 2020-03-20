@@ -274,15 +274,24 @@ public class ResolvingDecoder extends ValidatingDecoder {
   public int readIndex() throws IOException {
     parser.advance(Symbol.UNION);
     Symbol top = parser.popSymbol();
-    final int result;
+    int result;
     if (top instanceof Symbol.UnionAdjustAction) {
       result = ((Symbol.UnionAdjustAction) top).rindex;
       top = ((Symbol.UnionAdjustAction) top).symToParse;
     } else {
-      result = in.readIndex();
-      top = ((Symbol.Alternative) top).getSymbol(result);
+      result = -1;
+      try {
+        result = in.readIndex();
+        if (result != -1) {
+          top = ((Symbol.Alternative) top).getSymbol(result);
+        }
+      } catch (IOException ignored) {
+
+      }
+
     }
-    parser.pushSymbol(top);
+    if (result != -1)
+      parser.pushSymbol(top);
     return result;
   }
 

@@ -19,8 +19,10 @@ package org.apache.avro.generic;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Collection;
@@ -86,7 +88,7 @@ public class GenericDatumWriter<D> implements DatumWriter<D> {
   /**
    * Convert a high level representation of a logical type (such as a BigDecimal)
    * to the its underlying representation object (such as a ByteBuffer).
-   * 
+   *
    * @throws IllegalArgumentException if a null schema or logicalType is passed in
    *                                  while datum and conversion are not null.
    *                                  Please be noticed that the exception type
@@ -139,10 +141,25 @@ public class GenericDatumWriter<D> implements DatumWriter<D> {
         writeMap(schema, datum, out);
         break;
       case UNION:
-        int index = resolveUnion(schema, datum);
-        out.writeIndex(index);
-        write(schema.getTypes().get(index), datum, out);
+        List<Object> datumList = new ArrayList<>();
+        if (datum instanceof Iterable) {
+          ((Iterable) datum).forEach(datumList::add);
+        } else {
+          datumList.add(datum);
+        }
+        for (Object data : datumList) {
+          int index = resolveUnion(schema, data);
+          // TODO: Review this
+          out.writeIndex(index);
+          if (index > -1) {
+            write(schema.getTypes().get(index), data, out);
+          } else {
+//          write(Schema.Type.NULL, datum, out);
+          }
+        }
+
         break;
+
       case FIXED:
         writeFixed(schema, datum, out);
         break;

@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Random;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -1345,10 +1346,40 @@ public class TestReflect {
 
     public Human() {
     }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o)
+        return true;
+      if (o == null || getClass() != o.getClass())
+        return false;
+      Human human = (Human) o;
+      return Objects.equals(name, human.name) && Objects.equals(friends, human.friends);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, friends);
+    }
   }
 
   public static class Machine {
-    public String name = "machine";
+    public String name = "BB-8";
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o)
+        return true;
+      if (o == null || getClass() != o.getClass())
+        return false;
+      Machine machine = (Machine) o;
+      return Objects.equals(name, machine.name);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name);
+    }
   }
 
   @Test
@@ -1361,17 +1392,57 @@ public class TestReflect {
     System.out.println(schema.toString(true));
   }
 
+  @Union({ Human.class, Machine.class })
+  public static class Kind extends Object {
+  }
+
   public static class Meta {
-    @Union({ Human.class, Machine.class })
-    ArrayList<Object> kinds = new ArrayList<>();
+    @Union({ Machine.class, Human.class })
+    Object kind;
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o)
+        return true;
+      if (o == null || getClass() != o.getClass())
+        return false;
+      Meta meta = (Meta) o;
+      if (this.kind == null) {
+        if (meta.kind == null) {
+          return true;
+        }
+      }
+      // if(this.kind instanceof Human){
+      // return ((Human)this.kind).equals(meta.kind);
+      // }
+      return this.kind.equals(meta.kind);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(kind);
+    }
   }
 
   @Test
   public void testUnionDefaults() {
     Human andy = new Human();
     Meta meta = new Meta();
-    meta.kinds.add(andy);
-    Schema schema = ReflectData.UseInitialValueAsDefault.get().withDefault(Meta.class, meta).getSchema(Meta.class);
+    // meta.kind = andy;
+    // meta.kinds.add((Kind)andy);
+    ReflectData.UseInitialValueAsDefault reflect = ReflectData.UseInitialValueAsDefault.get().withDefault(Meta.class,
+        meta);
+    Schema schema = reflect.getSchema(Meta.class);
+
     System.out.println(schema.toString(true));
+
+    try {
+      Meta object = new Meta();
+      checkReadWrite(meta, schema);
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("Should have no exception");
+    }
   }
+
 }

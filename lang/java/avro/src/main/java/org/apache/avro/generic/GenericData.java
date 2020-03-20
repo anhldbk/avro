@@ -588,6 +588,9 @@ public class GenericData {
     case UNION:
       try {
         int i = resolveUnion(schema, datum);
+        if (i == -1) {
+          return true;
+        }
         return validate(schema.getTypes().get(i), datum);
       } catch (UnresolvedUnionException e) {
         return false;
@@ -872,7 +875,8 @@ public class GenericData {
     if (i != null) {
       return i;
     }
-    throw new UnresolvedUnionException(union, datum);
+    return -1;
+//    throw new UnresolvedUnionException(union, datum);
   }
 
   /**
@@ -1078,7 +1082,11 @@ public class GenericData {
         hashCode = hashCodeAdd(hashCode, e, elementType);
       return hashCode;
     case UNION:
-      return hashCode(o, s.getTypes().get(resolveUnion(s, o)));
+      int index = resolveUnion(s, o);
+      if (index == -1) {
+        return o.hashCode();
+      }
+      return hashCode(o, s.getTypes().get(index));
     case ENUM:
       return s.getEnumOrdinal(o.toString());
     case NULL:
@@ -1145,7 +1153,13 @@ public class GenericData {
     case UNION:
       int i1 = resolveUnion(s, o1);
       int i2 = resolveUnion(s, o2);
-      return (i1 == i2) ? compare(o1, o2, s.getTypes().get(i1), equals) : Integer.compare(i1, i2);
+      if (i1 != i2) {
+        return Integer.compare(i1, i2);
+      }
+      if (i1 == -1) {
+        return o1.equals(o2) ? 0 : 1;
+      }
+      return compare(o1, o2, s.getTypes().get(i1), equals);
     case NULL:
       return 0;
     case STRING:
@@ -1299,7 +1313,10 @@ public class GenericData {
       }
       return new Utf8(value.toString());
     case UNION:
-      return deepCopy(schema.getTypes().get(resolveUnion(schema, value)), value);
+      int index = resolveUnion(schema, value);
+      if (index == -1)
+        return value;
+      return deepCopy(schema.getTypes().get(index), value);
     default:
       throw new AvroRuntimeException("Deep copy failed for schema \"" + schema + "\" and value \"" + value + "\"");
     }
