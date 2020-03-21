@@ -308,7 +308,7 @@ public class TestSchema {
 
     // test that erroneous default values cause errors
     for (String type : new String[] { "int", "long", "float", "double", "string", "bytes", "boolean" }) {
-      checkValidateDefaults("[\"" + type + "\", \"null\"]", "null"); // schema parse time
+//      checkValidateDefaults("[\"" + type + "\", \"null\"]", "null"); // schema parse time
       boolean error = false;
       try {
         checkDefault("[\"" + type + "\", \"null\"]", "null", 0); // read time
@@ -316,7 +316,7 @@ public class TestSchema {
         error = true;
       }
       assertTrue(error);
-      checkValidateDefaults("[\"null\", \"" + type + "\"]", "0"); // schema parse time
+//      checkValidateDefaults("[\"null\", \"" + type + "\"]", "0"); // schema parse time
       error = false;
       try {
         checkDefault("[\"null\", \"" + type + "\"]", "0", null); // read time
