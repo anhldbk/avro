@@ -17,6 +17,8 @@
  */
 package org.apache.avro.util.internal;
 
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -94,7 +96,11 @@ public class JacksonUtils {
   }
 
   protected static Map objectToMap(Object datum) {
-    return new ObjectMapper().convertValue(datum, Map.class);
+    ObjectMapper mapper = new ObjectMapper();
+    // we only care about fields
+    mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.NONE);
+    mapper.setVisibility(PropertyAccessor.FIELD, JsonAutoDetect.Visibility.ANY);
+    return mapper.convertValue(datum, Map.class);
   }
 
   public static Object toObject(JsonNode jsonNode) {
