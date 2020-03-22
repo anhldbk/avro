@@ -103,7 +103,7 @@ public class ReflectData extends SpecificData {
   public static class UseInitialValueAsDefault extends ReflectData {
     private static final UseInitialValueAsDefault INSTANCE = new UseInitialValueAsDefault();
     private final Map<String, Object> defaultValues = new ConcurrentHashMap<>();
-    private boolean allowNull = false;
+    private boolean allowNull = true;
 
     /** Return the singleton instance. */
     public static UseInitialValueAsDefault get() {
@@ -803,6 +803,14 @@ public class ReflectData extends SpecificData {
     return Schema.createUnion(branches);
   }
 
+  // construct a schema from a union annotation
+  private Schema getAnnotatedArray(org.apache.avro.reflect.Array array, Map<String, Schema> names) {
+    List<Schema> branches = new ArrayList<>();
+    for (Class branch : array.value())
+      branches.add(createSchema(branch, names));
+    return Schema.createArray(Schema.createUnion(branches));
+  }
+
   /** Create and return a union of the null schema and the provided schema. */
   public static Schema makeNullable(Schema schema) {
     if (schema.getType() == Schema.Type.UNION) {
@@ -859,7 +867,7 @@ public class ReflectData extends SpecificData {
       try {
         return enc.using().getDeclaredConstructor().newInstance().getSchema();
       } catch (Exception e) {
-        throw new AvroRuntimeException("Could not create schema from custom serializer for " + field.getName());
+        throw new AvroRuntimeException("Could not create a schema from custom serializer for " + field.getName());
       }
 
     AvroSchema explicit = field.getAnnotation(AvroSchema.class);
@@ -869,6 +877,20 @@ public class ReflectData extends SpecificData {
     Union union = field.getAnnotation(Union.class);
     if (union != null)
       return getAnnotatedUnion(union, names);
+
+    org.apache.avro.reflect.Array array = field.getAnnotation(org.apache.avro.reflect.Array.class);
+    if (array != null) {
+      Type genericType = field.getGenericType();
+      if (!(genericType instanceof ParameterizedType)) {
+        throw new AvroRuntimeException("Annotation @Array must be use with Collection<Object>");
+      }
+      Type rawType = ((ParameterizedType) genericType).getRawType();
+      Type[] typeArguments = ((ParameterizedType) genericType).getActualTypeArguments();
+      if (!Collection.class.isAssignableFrom((Class<?>) rawType)) {
+        throw new AvroRuntimeException("Annotation @Array must be use with Collection<Object>");
+      }
+      return getAnnotatedArray(array, names);
+    }
 
     Schema schema = createSchema(field.getGenericType(), names);
     if (field.isAnnotationPresent(Stringable.class)) { // Stringable
