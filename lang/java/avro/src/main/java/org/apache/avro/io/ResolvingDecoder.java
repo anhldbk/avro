@@ -17,16 +17,16 @@
  */
 package org.apache.avro.io;
 
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
-import java.util.Objects;
-
 import org.apache.avro.AvroTypeException;
 import org.apache.avro.Schema;
 import org.apache.avro.io.parsing.ResolvingGrammarGenerator;
 import org.apache.avro.io.parsing.Symbol;
 import org.apache.avro.util.Utf8;
+
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
 
 /**
  * {@link Decoder} that performs type-resolution between the reader's and
@@ -121,7 +121,6 @@ public class ResolvingDecoder extends ValidatingDecoder {
    * the field values.)
    *
    * @throws AvroTypeException If we're not starting a new record
-   *
    */
   public final Schema.Field[] readFieldOrder() throws IOException {
     return ((Symbol.FieldOrderAction) parser.advance(Symbol.FIELD_ACTION)).fields;
@@ -279,16 +278,10 @@ public class ResolvingDecoder extends ValidatingDecoder {
       result = ((Symbol.UnionAdjustAction) top).rindex;
       top = ((Symbol.UnionAdjustAction) top).symToParse;
     } else {
-      result = -1;
-      try {
-        result = in.readIndex();
-        if (result != -1) {
-          top = ((Symbol.Alternative) top).getSymbol(result);
-        }
-      } catch (IOException ignored) {
-
+      result = in.readIndex();
+      if (result != -1) {
+        top = ((Symbol.Alternative) top).getSymbol(result);
       }
-
     }
     if (result != -1)
       parser.pushSymbol(top);
