@@ -141,25 +141,8 @@ public class GenericDatumWriter<D> implements DatumWriter<D> {
         writeMap(schema, datum, out);
         break;
       case UNION:
-        List<Object> datumList = new ArrayList<>();
-        if (datum instanceof Iterable) {
-          ((Iterable) datum).forEach(datumList::add);
-        } else {
-          datumList.add(datum);
-        }
-        for (Object data : datumList) {
-          int index = resolveUnion(schema, data);
-          // TODO: Review this
-          out.writeIndex(index);
-          if (index > -1) {
-            write(schema.getTypes().get(index), data, out);
-          } else {
-//          write(Schema.Type.NULL, datum, out);
-          }
-        }
-
+        writeUnion(schema, datum, out);
         break;
-
       case FIXED:
         writeFixed(schema, datum, out);
         break;
@@ -192,6 +175,34 @@ public class GenericDatumWriter<D> implements DatumWriter<D> {
       }
     } catch (NullPointerException e) {
       throw npe(e, " of " + schema.getFullName());
+    }
+  }
+
+  protected void writeUnion(Schema schema, Object datum, Encoder out) throws IOException {
+    // if we can resolve the datum as a whole
+    int index = resolveUnion(schema, datum);
+    if (index > -1) {
+      out.writeIndex(index);
+      write(schema.getTypes().get(index), datum, out);
+      return;
+    }
+
+    // or else, we must resolve individually
+    List<Object> datumList = new ArrayList<>();
+    if (datum instanceof Iterable) {
+      ((Iterable) datum).forEach(datumList::add);
+    } else {
+      datumList.add(datum);
+    }
+    for (Object data : datumList) {
+      index = resolveUnion(schema, data);
+      // TODO: Review this
+      out.writeIndex(index);
+      if (index > -1) {
+        write(schema.getTypes().get(index), data, out);
+      } else {
+        throw new IOException(String.valueOf(data));
+      }
     }
   }
 
