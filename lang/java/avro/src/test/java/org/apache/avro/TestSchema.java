@@ -26,6 +26,7 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -200,4 +201,18 @@ public class TestSchema {
     }
   }
 
+  @Test
+  public void testAmbiguousUnion() {
+    List<Schema> types = new ArrayList<>();
+    Schema enumFirst = Schema.createEnum("First", "doc", "namespace", Arrays.asList("A", "B"));
+    Schema enumSecond = Schema.createEnum("Second", "doc", "namespace", Arrays.asList("C", "B", "A"));
+    types.add(enumFirst);
+    types.add(enumSecond);
+
+    try {
+      Schema.createUnion(types);
+      fail("Should have an exception");
+    } catch (AvroRuntimeException e) {
+    }
+  }
 }
