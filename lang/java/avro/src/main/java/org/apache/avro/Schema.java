@@ -1167,6 +1167,54 @@ public abstract class Schema extends JsonProperties implements Serializable {
     public UnionSchema(LockableArrayList<Schema> types) {
       super(Type.UNION);
       this.types = types.lock();
+      validate(types);
+    }
+
+    private void validateEnums(List<Schema> schemas) {
+      // we just discard any ambiguity found in enums
+      // For example: this schema is ambiguous
+      // {
+      // "type": "record",
+      // "name": "R",
+      // "fields": [
+      // {
+      // "name": "F",
+      // "type": {
+      // "type": "array",
+      // "items": [
+      // {
+      // "type": "enum",
+      // "name": "E1",
+      // "symbols": ["A", "B"]
+      // },
+      // {
+      // "type": "enum",
+      // "name": "E2",
+      // "symbols": ["B", "A", "C"]
+      // }
+      // ]
+      // },
+      // "default": ["A", "B", "C"]
+      // }
+      // ]
+      // }
+      // To eliminate this, we force enums in a Union must use unique symbols
+      Set<String> uniqueSymbol = new HashSet<>();
+      for (Schema schema : schemas) {
+        if (!(schema instanceof EnumSchema)) {
+          continue;
+        }
+        EnumSchema enumSchema = (EnumSchema) schema;
+        for (String symbol : enumSchema.getEnumSymbols()) {
+          if (!uniqueSymbol.add(symbol)) {
+            throw new AvroRuntimeException("Ambiguity detected in Union: " + this.getName() + ". Symbol " + symbol
+                + " is found in more than one enum.");
+          }
+        }
+      }
+    }
+
+    private void validate(LockableArrayList<Schema> types) {
       int index = 0;
       for (Schema type : types) {
         if (type.getType() == Type.UNION)
@@ -1177,6 +1225,7 @@ public abstract class Schema extends JsonProperties implements Serializable {
         if (indexByName.put(name, index++) != null)
           throw new AvroRuntimeException("Duplicate in union:" + name);
       }
+      validateEnums(types);
     }
 
     @Override
@@ -1592,29 +1641,35 @@ public abstract class Schema extends JsonProperties implements Serializable {
           return false;
       return true;
     case UNION: // union default: match any
-      // Create an empty list
-      List<JsonNode> valueList = new ArrayList<>();
-      if (!defaultValue.isArray()) {
-        valueList.add(defaultValue);
-      } else {
-        // Add each element of iterator to the List
-        defaultValue.iterator().forEachRemaining(valueList::add);
-      }
-      boolean valid = false;
-      for (JsonNode value : valueList) {
-        valid = false;
-        for (Schema sc : schema.getTypes()) {
-          if (isValidDefault(sc, value)) {
-            valid = true;
-            break;
-          }
-        }
-        if (!valid) {
-          return false;
+      for (Schema sc : schema.getTypes()) {
+        if (isValidDefault(sc, defaultValue)) {
+          return true;
         }
       }
-
-      return true;
+      return false;
+//      // Create an empty list
+//      List<JsonNode> valueList = new ArrayList<>();
+//      if (!defaultValue.isArray()) {
+//        valueList.add(defaultValue);
+//      } else {
+//        // Add each element of iterator to the List
+//        defaultValue.iterator().forEachRemaining(valueList::add);
+//      }
+//      boolean valid = false;
+//      for (JsonNode value : valueList) {
+//        valid = false;
+//        for (Schema sc : schema.getTypes()) {
+//          if (isValidDefault(sc, value)) {
+//            valid = true;
+//            break;
+//          }
+//        }
+//        if (!valid) {
+//          return false;
+//        }
+//      }
+//
+//      return true;
 
     case RECORD:
       if (!defaultValue.isObject())
