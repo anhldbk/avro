@@ -74,34 +74,26 @@ Things get complicated if you have to work with enumerations. Because Java enums
 
 
 ```java
-public class Human extends Kind {
+public class Human {
  String name = "Andy";
  ArrayList < Human > friends = new ArrayList < > ();
 }
 
-public class Machine extends Kind {
+public class Machine {
  String name = "BB-8";
 }
 
 enum First {
- A, B, C
+ A,
+ B,
+ C
 }
 
 enum Second {
- X, Y, Z
+ X,
+ Y,
+ Z
 }
-
-@Union({
- Human.class,
- Machine.class
-})
-public class Kind extends Object {}
-
-@Union({
- First.class,
- Second.class
-})
-public class Rank {}
 
 public class Meta {
  @Array({
