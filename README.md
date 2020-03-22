@@ -118,8 +118,60 @@ public class Meta {
 }
 ```
 
-## Installation
+## Usage
+
+### Installation
 
 ```bash
 $ scripts/local-install.sh
+```
+
+### Dependency
+
+```xml
+<dependency>
+    <groupId>org.apache.avro</groupId>
+    <artifactId>avro</artifactId>
+    <version>1.10.0.avro-2723</version>
+</dependency>
+
+```
+
+### Code 
+
+Simply just use normal Java code, no additional annotations.
+
+```java
+public class Human {
+  String name = "Andy";
+  ArrayList<Human> friends = new ArrayList<>();
+}
+
+ReflectData.UseInitialValueAsDefault reflect = ReflectData.UseInitialValueAsDefault.get();
+Schema schema = reflect.getSchema(Human.class);
+
+System.out.println(schema.toString(true));
+```
+
+The output:
+
+```json
+{
+  "type" : "record",
+  "name" : "Human",
+  "namespace" : "org.apache.avro.reflect.TestReflectUseInitialValueAsDefault",
+  "fields" : [ {
+    "name" : "name",
+    "type" : [ "null", "string" ],
+    "default" : "Andy"
+  }, {
+    "name" : "friends",
+    "type" : [ "null", {
+      "type" : "array",
+      "items" : "Human",
+      "java-class" : "java.util.ArrayList"
+    } ],
+    "default" : [ ]
+  } ]
+}
 ```
