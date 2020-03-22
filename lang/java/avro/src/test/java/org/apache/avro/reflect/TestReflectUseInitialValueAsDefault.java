@@ -21,9 +21,14 @@ import org.apache.avro.Schema;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
-public class TestReflectUseInitialValueAsDefault {
+import static org.junit.Assert.fail;
+
+public class TestReflectUseInitialValueAsDefault extends TestReflect {
   private static Boolean DEFAULT_BOOLEAN = true;
   private static Byte DEFAULT_BYTE = 55;
   private static Short DEFAULT_SHORT = 555;
@@ -72,6 +77,136 @@ public class TestReflectUseInitialValueAsDefault {
     Object doubleOrLongOrNull3;
   }
 
+  public static class Human extends Kind {
+    String name = "Andy";
+    ArrayList<Human> friends = new ArrayList<>();
+
+    public Human(String name) {
+      this.name = name;
+    }
+
+    public Human() {
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o)
+        return true;
+      if (o == null || getClass() != o.getClass())
+        return false;
+      Human human = (Human) o;
+      return Objects.equals(name, human.name) && Objects.equals(friends, human.friends);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name, friends);
+    }
+  }
+
+  public static class Machine extends Kind {
+    String name = "BB-8";
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o)
+        return true;
+      if (o == null || getClass() != o.getClass())
+        return false;
+      Machine machine = (Machine) o;
+      return Objects.equals(name, machine.name);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(name);
+    }
+  }
+
+  @Test
+  public void testDefaults() {
+    Human andy = new Human("andy");
+    Human grass = new Human("grass");
+    andy.friends.add(grass);
+
+    Schema schema = ReflectData.UseInitialValueAsDefault.get()
+        // .withDefault(Human.class, andy)
+        .getSchema(Meta.class);
+    System.out.println(schema.toString(true));
+  }
+
+  @Union({ Human.class, Machine.class })
+  public static class Kind extends Object {
+  }
+
+  @Union({ First.class, Second.class })
+  public static class Rank {
+  }
+
+  public static class Meta {
+    @Array({ First.class, Second.class })
+    List<Object> ranks = new ArrayList<>();
+
+    @Array({ Human.class, Machine.class })
+    List<Object> kinds = new ArrayList<>();
+
+    List<Kind> categories = new ArrayList<>();
+
+    String name;
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o)
+        return true;
+      if (o == null || getClass() != o.getClass())
+        return false;
+      Meta meta = (Meta) o;
+      if (this.ranks == null) {
+        if (meta.ranks == null) {
+          return true;
+        }
+        return false;
+      }
+
+      return this.ranks.equals(meta.ranks);
+    }
+
+  }
+
+  enum First {
+    A, B, C
+  }
+
+  enum Second {
+    X, Y, Z
+  }
+
+  @Test
+  public void testUnionDefaults() {
+    Human andy = new Human();
+    Machine machine = new Machine();
+    Meta meta = new Meta();
+    meta.kinds.add(andy);
+    meta.kinds.add(machine);
+    meta.ranks.add(First.A);
+    meta.ranks.add(Second.Z);
+
+    ReflectData.UseInitialValueAsDefault reflect = ReflectData.UseInitialValueAsDefault.get().allowNull(true)
+        .withDefault(Meta.class, meta);
+    Schema schema = reflect.getSchema(Meta.class);
+
+    System.out.println(schema.toString(true));
+
+    try {
+      checkReadWrite(meta, schema);
+      checkReadWrite(new Meta(), schema);
+      System.out.println("Done");
+    } catch (Exception e) {
+      e.printStackTrace();
+      fail("Should have no exception");
+    }
+  }
+
   protected void assertField(Schema schema, String fieldName, Class fieldClass) {
     assertField(schema, fieldName, fieldClass, null);
   }
@@ -94,7 +229,7 @@ public class TestReflectUseInitialValueAsDefault {
         return;
       }
     }
-    Assert.fail();
+    fail();
   }
 
   protected void assetNullableField(Schema schema, String fieldName, Class fieldClass, Object fieldDefaultValue) {
@@ -160,22 +295,6 @@ public class TestReflectUseInitialValueAsDefault {
     assertField(wrappers, "aDouble", double.class, DEFAULT_DOUBLE);
     assertField(wrappers, "anObject", Primitives.class);
     // assetNullableField(wrappers, "anObject", Primitives.class, DEFAULT_DOUBLE);
-    //
-    // Assert.assertEquals(nullableSchema(boolean.class),
-    // wrappers.getField("aBoolean").schema());
-    // Assert.assertEquals(nullableSchema(byte.class),
-    // wrappers.getField("aByte").schema());
-    // Assert.assertEquals(nullableSchema(short.class),
-    // wrappers.getField("aShort").schema());
-    // Assert.assertEquals(nullableSchema(int.class),
-    // wrappers.getField("anInt").schema());
-    // Assert.assertEquals(nullableSchema(long.class),
-    // wrappers.getField("aLong").schema());
-    // Assert.assertEquals(nullableSchema(float.class),
-    // wrappers.getField("aFloat").schema());
-    // Assert.assertEquals(nullableSchema(double.class),
-    // wrappers.getField("aDouble").schema());
-//    Assert.assertEquals(getSchema(Primitives.class), wrappers.getField("anObject").schema());
   }
 
   @Test
