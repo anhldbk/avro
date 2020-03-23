@@ -350,7 +350,7 @@ public class TestSchema {
 
     String namedTypes2 = ", {\"type\":\"record\",\"name\":\"Foo2\",\"fields\":[]},"
         + " {\"type\":\"fixed\",\"name\":\"Bar2\",\"size\": 1},"
-        + " {\"type\":\"enum\",\"name\":\"Baz2\",\"symbols\": [\"X\"]}";
+        + " {\"type\":\"enum\",\"name\":\"Baz2\",\"symbols\": [\"Y\"]}";
 
     check(new File(DIR.getRoot(), name.getMethodName()), partial + namedTypes + "]", false);
     check(new File(DIR.getRoot(), name.getMethodName()), partial + namedTypes + namedTypes2 + "]", false);
