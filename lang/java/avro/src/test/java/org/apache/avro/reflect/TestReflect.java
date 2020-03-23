@@ -52,7 +52,7 @@ import static org.junit.Assert.*;
 
 public class TestReflect {
 
-  EncoderFactory factory = new EncoderFactory();
+  static EncoderFactory factory = new EncoderFactory();
 
   // test primitive type inference
   @Test
@@ -567,7 +567,7 @@ public class TestReflect {
     checkReadWrite(object, ReflectData.get().getSchema(object.getClass()));
   }
 
-  void checkReadWrite(Object object, Schema s) throws Exception {
+  static void checkReadWrite(Object object, Schema s) throws Exception {
     ReflectDatumWriter<Object> writer = new ReflectDatumWriter<>(s);
     ByteArrayOutputStream out = new ByteArrayOutputStream();
     writer.write(object, factory.directBinaryEncoder(out, null));
@@ -1336,7 +1336,7 @@ public class TestReflect {
             + "\"fields\":[{\"name\":\"foo\",\"type\":\"int\",\"default\":1}]},\"doc\":\"And again\"}]}");
   }
 
-  public static class Human {
+  public class Human extends Kind {
     public String name = "Andy";
     public ArrayList<Human> friends = new ArrayList<>();
 
@@ -1363,7 +1363,7 @@ public class TestReflect {
     }
   }
 
-  public static class Machine {
+  public class Machine extends Kind {
     public String name = "BB-8";
 
     @Override
@@ -1392,30 +1392,23 @@ public class TestReflect {
     System.out.println(schema.toString(true));
   }
 
-  @Union({ Human.class, Machine.class })
-  public static class Kind extends Object {
-    public Object data;
-
-    public static Kind of(Human human) {
-      Kind result = new Kind();
-      result.data = human;
-      return result;
-    }
-
-    public static Kind of(Machine machine) {
-      Kind result = new Kind();
-      result.data = machine;
-      return result;
-    }
-
-    public boolean isHuman() {
-      return data instanceof Human;
+  @Test
+  public void testNonStaticClasses() {
+    try {
+      Schema schema = ReflectData.get().getSchema(Human.class);
+      assertEquals(schema.getFields().size(), 2);
+    } catch (Exception e) {
+      fail("Should have no exception");
     }
   }
 
-  public static class Meta {
-//    @Union({Machine.class, Human.class})
-//    Object kind;
+  @Union({ Human.class, Machine.class })
+  public class Kind {
+  }
+
+  public class Meta {
+    @Union({ Machine.class, Human.class })
+    Object category;
 
     @Nullable
     List<Kind> kinds;
@@ -1428,43 +1421,29 @@ public class TestReflect {
         return false;
       Meta meta = (Meta) o;
       return true;
-//      if (this.kind == null) {
-//        if (meta.kind == null) {
-//          return true;
-//        }
-//      }
-//      // if(this.kind instanceof Human){
-//      // return ((Human)this.kind).equals(meta.kind);
-//      // }
-//      return this.kind.equals(meta.kind);
     }
 
-//    @Override
-//    public int hashCode() {
-//      return Objects.hash(kind);
-//    }
-  }
+    @Test
+    public void testUnionDefaults() {
+      Human andy = new Human();
+      Meta meta = new Meta();
+      meta.kinds = new ArrayList<>();
+      meta.kinds.add(andy);
+      // meta.kind = andy;
+      // meta.kinds.add((Kind)andy);
+      ReflectData.UseInitialValueAsDefault reflect = ReflectData.UseInitialValueAsDefault.get().withDefault(Meta.class,
+          meta);
+      Schema schema = reflect.getSchema(Meta.class);
 
-  @Test
-  public void testUnionDefaults() {
-    Human andy = new Human();
-    Meta meta = new Meta();
-    meta.kinds = new ArrayList<>();
-    meta.kinds.add(Kind.of(andy));
-    // meta.kind = andy;
-    // meta.kinds.add((Kind)andy);
-    ReflectData.UseInitialValueAsDefault reflect = ReflectData.UseInitialValueAsDefault.get().withDefault(Meta.class,
-        meta);
-    Schema schema = reflect.getSchema(Meta.class);
+      System.out.println(schema.toString(true));
 
-    System.out.println(schema.toString(true));
-
-    try {
-      Meta object = new Meta();
-      checkReadWrite(meta, schema);
-    } catch (Exception e) {
-      e.printStackTrace();
-      fail("Should have no exception");
+      try {
+        Meta object = new Meta();
+        checkReadWrite(meta, schema);
+      } catch (Exception e) {
+        e.printStackTrace();
+        fail("Should have no exception");
+      }
     }
   }
 }

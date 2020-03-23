@@ -850,10 +850,16 @@ public class ReflectData extends SpecificData {
     do {
       if (excludeJava && c.getPackage() != null && c.getPackage().getName().startsWith("java."))
         break; // skip java built-in classes
-      for (Field field : c.getDeclaredFields())
-        if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0)
+      for (Field field : c.getDeclaredFields()) {
+        // ignore this hidden field which references to the outer class
+        if (field.getName().equals("this$0")) {
+          continue;
+        }
+        if ((field.getModifiers() & (Modifier.TRANSIENT | Modifier.STATIC)) == 0) {
           if (fields.put(field.getName(), field) != null)
             throw new AvroTypeException(c + " contains two fields named: " + field);
+        }
+      }
       c = c.getSuperclass();
     } while (c != null);
     fieldsList = fields.values().toArray(new Field[0]);
