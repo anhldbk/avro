@@ -55,7 +55,7 @@ public class JacksonUtils {
   }
 
   @SuppressWarnings(value = "unchecked")
-  static void toJson(Object datum, JsonGenerator generator) throws IOException {
+  public static void toJson(Object datum, JsonGenerator generator) throws IOException {
     if (datum == JsonProperties.NULL_VALUE) { // null
       generator.writeNull();
     } else if (datum instanceof Map) { // record, map
