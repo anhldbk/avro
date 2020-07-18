@@ -17,7 +17,7 @@ To contribute to Avro, please read:
 
 I want to make a `code-first` RPC platform with Avro for encoding & gRPC first for transport.
 
-This fork is a journey to make [AVRO-2723](https://issues.apache.org/jira/browse/AVRO-2723?page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel&focusedCommentId=17031652#)
+This fork is a journey to realize [AVRO-2723](https://issues.apache.org/jira/browse/AVRO-2723?page=com.atlassian.jira.plugin.system.issuetabpanels%3Acomment-tabpanel&focusedCommentId=17031652#). Some works are already merged in Apache Avro v1.10.0[PR #842](https://github.com/apache/avro/pull/842).
 
 Several changes are made
 
